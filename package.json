@@ -1,0 +1,54 @@
+{
+  "name": "mongoose-to-object-project",
+  "version": "1.0.0",
+  "description": "Adds projection to toObject with predefined levels and level selector capabilitiy",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Faleij/mongoose-toObject-project.git"
+  },
+  "keywords": [
+    "mongoose",
+    "toObject",
+    "projection",
+    "mongodb"
+  ],
+  "author": "Faleij",
+  "license": "LGPL-3.0",
+  "bugs": {
+    "url": "https://github.com/Faleij/mongoose-toObject-project/issues"
+  },
+  "homepage": "https://github.com/Faleij/mongoose-toObject-project#readme",
+  "dependencies": {
+    "mpath": "0.2.1"
+  },
+  "developmentDependency": {
+    "expect.js": "0.3.1",
+    "mongoose": "*"
+  },
+  "jshintConfig": {
+    "node": true,
+    "mocha": true,
+    "indent": 4,
+    "eqeqeq": true,
+    "quotmark": "single",
+    "asi": false,
+    "es5": false,
+    "esnext": true,
+    "globals": {
+      "describe": true,
+      "it": true,
+      "before": true,
+      "beforeEach": true,
+      "after": true,
+      "afterEach": true,
+      "gc": true
+    }
+  },
+  "engines": {
+    "node": ">=4.0.0"
+  }
+}
