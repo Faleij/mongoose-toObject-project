@@ -266,9 +266,9 @@ describe('ToObject Project MultiLevel', function() {
   });
 
   it('should get level schema', function() {
-    var schema = Model.getLevelSchema('public');
-    expect(schema).to.be.ok();
-    expect(schema).to.eql({
+    var schema0 = Model.getLevelSchema('public');
+    expect(schema0).to.be.ok();
+    expect(schema0).to.eql({
       username: String
     });
   });
