@@ -37,9 +37,7 @@ function compileProjectionStringToArray(str) {
  * Mongoose ToObject level projection plugin
  */
 module.exports = exports = (schema, pluginOptions) => {
-  schema.method('toObjectExtend', function(options) {
-    return this.toObject(Object.setPrototypeOf(options, schema.options.toObject));
-  });
+  schema.static('toObjectOptionsExtend', options => Object.setPrototypeOf(options, schema.options.toObject));
 
   // Compile levels to arrays
   Object.keys(pluginOptions.levels).forEach(key => pluginOptions.levels[key] = compileProjectionStringToArray(pluginOptions.levels[key]));

@@ -21,18 +21,33 @@ schema.plugin(require('mongoose-to-object-project'), {
   },
   // (optional) default level as a String
   level: 'public',
-  //  or a synchronous level selector function (all transform options are passed on to level selector functions)
+  //  or a synchronous level selector function
+  // (all transform options are passed on to level selector functions)
   level: (doc, ret, options) => doc._id.equals(options.user._id) ? 'private' : 'public'
 });
 ```
-## toObjectExtend(options)
-This method extends your custom options with the default toObject options and is the preferred way to call toObject.
+
+# Model Schema Extensions
+
+## _static_ toObjectOptionsExtend(``obj``)
+This method extends ``obj`` with the default schema toObject options (Adds defaults to prototype chain).  
+In mongoose the options passed to ``toObject`` do not inherit the defaults, this method solves this.
+
+Example:
 
 ``` javascript
-let object = document.toObjectExtend({
-    user: req.user
-});
+let options = Model.toObjectOptionsExtend({ user: req.user });
+let plainObject = document.toObject(options);
 ```
+
+# Compatibility
+
+Only intended for Mongoose v4 with NodeJS later than v4. Tested with Mongoose 4.2.8.
+
+# QA
+
+Q. What about toJSON?  
+A.Use option ``json: true`` with toObject, same results.
 
 # License
 

@@ -273,3 +273,17 @@ describe('ToObject Project MultiLevel', function() {
     });
   });
 });
+
+describe('toObjectOptionsExtend', function() {
+  var data = Model.toObjectOptionsExtend({
+    name: 'Doe'
+  });
+
+  it('name should equal to Doe', function() {
+    expect(data.name).to.eql('Doe');
+  });
+
+  it('level should equal public', function() {
+    expect(data.level).to.eql('public');
+  });
+});
