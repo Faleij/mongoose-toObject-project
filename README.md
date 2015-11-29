@@ -8,6 +8,9 @@ $ npm install mongoose-to-object-project
 ```
 
 ## Usage
+
+Register this plugin last as it will bootstrap any previous transform function option.
+
 ``` javascript
 schema.plugin(require('mongoose-to-object-project'), {
   // your predefined levels:
@@ -21,11 +24,22 @@ schema.plugin(require('mongoose-to-object-project'), {
   },
   // (optional) default level as a String
   level: 'public',
-  //  or a synchronous level selector function
+  //  or a synchronous level selector function (preferred method)
   // (all transform options are passed on to level selector functions)
   level: (doc, ret, options) => doc._id.equals(options.user._id) ? 'private' : 'public'
 });
 ```
+
+## Plugin Options
+
+``levels: Object { levelName: String }`` - Predefined levels to use with a level selector. String for each level is a Mongoose style dot-notation, space delimited projection. Both inclusions and exclusions are possible but inclusions takes precedence thus excluding all other fields.
+
+``level: String`` - Basic static level selector.
+
+``level: Function(doc, ret, options)`` - Synchronous function that must return level name to use as a string. **Preferred level selector method!**
+* ``doc`` - Mongoose Document
+* ``ret`` - Document as plain Object
+* ``options`` - Transform options (Same as ``obj`` - if specified)
 
 # Model Schema Extensions
 
@@ -36,21 +50,35 @@ In mongoose the options passed to ``toObject`` do not inherit the defaults, this
 Example:
 
 ``` javascript
-let options = Model.toObjectOptionsExtend({ user: req.user });
+let options = Model.toObjectOptionsExtend({
+    user: req.user,
+    projection: '-some.field.to.exclude some.field.to.include'
+});
 let plainObject = document.toObject(options);
 ```
 
-# Compatibility
+## _method_ toObject(``obj``)
+Added options:  
+``obj.projection: String`` - Mongoose style dot-notation, space delimited projection argument. Both inclusions and exclusions are possible but inclusions takes precedence thus excluding all other fields.
 
+``obj.level: String`` - Set level to use. (!)
+
+``obj.level: Function(doc, ret, options)`` - Synchronous function that must return level name to use as a string. (!)
+* ``doc`` - Mongoose Document
+* ``ret`` - Document as plain Object
+* ``options`` - Transform options (Same as ``obj`` - if specified)
+
+(!) **CAUTION**  
+level option is passed to the toObject method call of populated subdocuments and may not be compatible. Use with caution and if possible, avoid level option completely and depend on schema defaults instead. Function is the preferred level selector method in plugin options.
+
+# Compatibility
 Only intended for Mongoose v4 with NodeJS later than v4. Tested with Mongoose 4.2.8.
 
 # QA
-
 Q. What about toJSON?  
-A.Use option ``json: true`` with toObject, same results.
+A.Use option ``json: true`` with toObject, same result.
 
 # License
-
 [LGPL-3](LICENSE)
 
 Copyright (c) 2015 Faleij <faleij@gmail.com>
