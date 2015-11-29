@@ -1,4 +1,27 @@
+[npm-image]: http://img.shields.io/npm/v/mongoose-to-object-project.svg
+[npm-url]: https://npmjs.org/package/mongoose-to-object-project
+[downloads-image]: https://img.shields.io/npm/dm/mongoose-to-object-project.svg
+[downloads-url]: https://npmjs.org/package/mongoose-to-object-project
+[dependency-image]: https://gemnasium.com/Faleij/mongoose-toObject-project.svg
+[dependency-url]: https://gemnasium.com/Faleij/mongoose-toObject-project
+[travis-image]: https://travis-ci.org/Faleij/mongoose-toObject-project.svg?branch=master
+[travis-url]: https://travis-ci.org/Faleij/mongoose-toObject-project
+[coveralls-image]: https://coveralls.io/repos/Faleij/mongoose-toObject-project/badge.svg?branch=master&service=github
+[coveralls-url]: https://coveralls.io/github/Faleij/mongoose-toObject-project?branch=master
+[gratipay-image]: https://img.shields.io/gratipay/faleij.svg
+[gratipay-url]: https://gratipay.com/faleij/
+
 # mongoose toObject project
+
+[![NPM version][npm-image]][npm-url]
+[![NPM Downloads][downloads-image]][downloads-url]
+[![Dependency Status][dependency-image]][dependency-url]
+[![Build Status][travis-image]][travis-url]
+[![Coverage Status][coveralls-image]][coveralls-url]
+[![Gratipay][gratipay-image]][gratipay-url]
+
+An ``toObject`` projection plugin for mongoose.
+
 Adds advanced projection capabilities to ``toObject`` with optional predefined levels and level selector capabilities.
 
 ## Installation
