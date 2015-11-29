@@ -5,4 +5,4 @@ sudo: false
 script:
   - "npm run coverage"
 after_script:
-  - "test -e ./coverage/lcov.info && npm run coveralls"
+  - "test -e ./coverage/lcov.info && cat ./coverage/lcov.info | coveralls"
