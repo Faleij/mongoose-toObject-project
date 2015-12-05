@@ -1,6 +1,6 @@
 {
   "name": "mongoose-to-object-project",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Adds projection to toObject with predefined levels and level selector capabilitiy",
   "main": "index.js",
   "scripts": {
