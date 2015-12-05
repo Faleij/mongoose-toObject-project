@@ -46,13 +46,13 @@ const schema = new Schema({
     },
     myInternalField: {
       type: String,
-      level: 'internal' // only visible on 'internal' level
+      level: 'internal' // only visible on 'internal' level, 'internal' must be predefined.
     }
 });
 
 schema.plugin(require('mongoose-to-object-project'), {
   levels: {
-      'internal': ''
+      'internal': '' // predefintion
   }
 });
 ```
@@ -63,22 +63,29 @@ schema.plugin(require('mongoose-to-object-project'), {
 schema.plugin(require('mongoose-to-object-project'), options);
 ```
 
-`levels: Object { *levelName*: String }` - Predefined levels to use with a level selector. String for each level is a Mongoose style dot-notation, space delimited projection. Both inclusions and exclusions are possible but inclusions takes precedence thus excluding all other fields.
+### `levels: Object`
+Predefined levels to use with a level selector. Key is level name. Value is a Mongoose style dot-notation, space delimited projection. Both inclusions and exclusions are possible but inclusions takes precedence thus excluding all other fields.
+
 ```javascript
 levels: {
     public: 'username rank status',
     private: '-password -secretField -secret.deep.field'
 }
 ```
-`level: String` - Basic static level selector.
+
+### `level: String`
+Basic static level selector.
+
 ```javascript
 level: 'public'
 ```
 
-`level: Function(doc, ret, options)` - Synchronous function that must return level name to use as a string. **Preferred level selector method!**
+### `level: Function(doc, ret, options)`
+Synchronous function that must return level name to use as a string. **Preferred level selector method!**
 - `doc` - Mongoose Document
 - `ret` - Document as plain Object
 - `options` - Transform options (Same as `obj` - if specified)
+
 ```javascript
 level: (doc, ret, options) => doc._id.equals(options.user._id) ? 'private' : 'public'
 ```
