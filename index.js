@@ -5,7 +5,8 @@ const utils = module.parent.require('mongoose/lib/utils');
 
 function minimize(obj) {
   var k = Object.keys(obj),
-    i = k.length, h, v;
+    i = k.length,
+    h, v;
 
   while (i--) {
     v = obj[k[i]];
@@ -20,7 +21,7 @@ function minimize(obj) {
 }
 
 function compileProjectionStringToArray(str) {
-  return typeof str === 'string' ? str.split(' ').reduce((projection, path) => {
+  let out = str.split(' ').reduce((projection, path) => {
     if (path[0] === '-') {
       projection.exclude.push(path.substr(1));
     } else if (path.length) {
@@ -30,7 +31,15 @@ function compileProjectionStringToArray(str) {
   }, {
     include: [],
     exclude: []
-  }) : str;
+  });
+
+  // Filter child paths
+  Object.keys(out).forEach(key => {
+    let fields = out[key].sort();
+    out[key] = fields.filter(v => !fields.some(field => v !== field && v.indexOf(field) === 0));
+  });
+
+  return out;
 }
 
 /*
@@ -39,8 +48,46 @@ function compileProjectionStringToArray(str) {
 module.exports = exports = (schema, pluginOptions) => {
   schema.static('toObjectOptionsExtend', options => Object.setPrototypeOf(options, schema.options.toObject));
 
+  if (!pluginOptions.levels) {
+    pluginOptions.levels = {};
+  }
+
+  let predefinedLevels = Object.keys(pluginOptions.levels);
+
   // Compile levels to arrays
-  Object.keys(pluginOptions.levels).forEach(key => pluginOptions.levels[key] = compileProjectionStringToArray(pluginOptions.levels[key]));
+  predefinedLevels.forEach(key => pluginOptions.levels[key] = compileProjectionStringToArray(pluginOptions.levels[key]));
+
+  // Support schemaType level option
+  schema.eachPath((pathName, schemaType) => {
+    if (schemaType.options.level) {
+      var levels = compileProjectionStringToArray(schemaType.options.level);
+
+      if (levels.include.length > 0 && levels.exclude.length > 0) {
+        throw new Error(`"${pathName}" contains inclusions and exclusions, only one type can be used`);
+      }
+
+      levels.include.forEach(level => {
+        if (!pluginOptions.levels.hasOwnProperty(level)) {
+          throw new Error(`"${pathName}" contains undefined level "${level}". Level inclusions must be predefined in plugin options.`);
+        }
+
+        predefinedLevels.filter(v => v !== level).forEach(excludeLevel => {
+          pluginOptions.levels[excludeLevel].exclude.push(pathName);
+        });
+      });
+
+      levels.exclude.forEach((level) => {
+        if (pluginOptions.levels.hasOwnProperty(level)) {
+          pluginOptions.levels[level].exclude.push(pathName);
+        } else {
+          pluginOptions.levels[level] = {
+            include: [],
+            exclude: [pathName]
+          };
+        }
+      });
+    }
+  });
 
   function transform(doc, ret, options) {
     var out = ret;
@@ -55,11 +102,13 @@ module.exports = exports = (schema, pluginOptions) => {
       level = pluginOptions.levels[level];
     }
 
-    if (level) {
-      // merge user and preset levels projection
-      projection.include = projection.include.concat(level.include);
-      projection.exclude = projection.exclude.concat(level.exclude);
+    if (!level) {
+      throw new Error('unable to determine level');
     }
+
+    // merge user and preset levels projection
+    projection.include = projection.include.concat(level.include);
+    projection.exclude = projection.exclude.concat(level.exclude);
 
     // inclusion
     if (projection.include.length) {
@@ -71,7 +120,7 @@ module.exports = exports = (schema, pluginOptions) => {
       projection.exclude.forEach((path) => mpath.set(path, undefined, out));
     }
 
-    return schema.options.minimize ? minimize(out) : out;
+    return options.minimize ? minimize(out) : out;
   }
 
   // Set schema toObject options
@@ -85,8 +134,8 @@ module.exports = exports = (schema, pluginOptions) => {
   /*
    * Returns simple schema object
    */
-  schema.static('getLevelSchema', level => transform(undefined, utils.clone(schema.tree), {
-      minimize: false,
-      level: level
-    }));
+  schema.static('getLevelSchemaTree', level => transform(undefined, utils.clone(schema.tree), {
+    minimize: true,
+    level: level
+  }));
 };

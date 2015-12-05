@@ -3,6 +3,14 @@
 const expect = require('expect.js');
 const mongoose = require('mongoose');
 
+/*
+TODO:
+Test child path filtering.
+Test all errors
+Test no minimization
+Test no preset option
+*/
+
 const schema = mongoose.Schema({
   username: String,
   name: String,
@@ -18,13 +26,25 @@ const schema = mongoose.Schema({
       b: String
     }]
   },
+  notes: {
+    title: String,
+    content: String
+  },
   friend: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  systemField: {
+    type: String,
+    level: '-public -private -newLevel' // visible on levels other than 'public' and 'private'
+  },
+  groups: {
+    type: String,
+    level: 'internal' // only visible on 'internal' level
   }
 });
 
-var otherActive = true;
+let otherActive = true;
 schema.set('toObject', {
   transform: (doc, ret) => {
     if (otherActive)
@@ -32,43 +52,52 @@ schema.set('toObject', {
   }
 });
 
-schema.plugin(require('.'), {
+let options = {
   levels: {
     public: 'username -password -_id -deep otherTransform -friend',
     private: '-password -_id',
-    system: ''
+    system: '',
+    internal: ''
   },
   // optional default level as string or a synchronous level selector function returning level name as a string (recommended), function is passed all transform arguments
   level: 'public'
-});
+};
+
+schema.plugin(require('.'), options);
 
 const Model = mongoose.model('User', schema);
 
-describe('ToObject Project Single Level', function() {
+describe('ToObject Project Single Level', function () {
 
-  var friend = new Model({
+  let friend = new Model({
     username: 'Doe',
     name: 'John Doe',
     password: '654321',
     email: 'doe@email.com'
   });
 
-  var user = new Model({
+  let user = new Model({
     username: 'John',
     name: 'John Jhonsson',
     password: '123456',
     email: 'private@email.com',
-    friend: friend
+    friend: friend,
+    systemField: 'sys',
+    groups: 'admin user',
+    notes: {
+      title: undefined
+    },
+    data: []
   });
 
   it('should respect existing toObject transform', () => {
-    var data = user.toObject();
+    let data = user.toObject();
     otherActive = false;
     expect(data.otherTransform).to.be.ok();
   });
 
-  it('level selector function should select level', function() {
-    var data = user.toObject({
+  it('level selector function should select level', function () {
+    let data = user.toObject({
       user: user,
       // Set and override level selector.
       // A simple level selector based on user _id equality.
@@ -88,16 +117,27 @@ describe('ToObject Project Single Level', function() {
     });
   });
 
-  it('should be public by default', function() {
-    var data = user.toObject();
+  it('should be public by default', function () {
+    let data = user.toObject();
     expect(data).to.eql({
       username: 'John'
     });
   });
 
-  it('should be private', function() {
-    var data = user.toObject({
-      level: 'private'
+  it('should not minimize', function () {
+    let data = user.toObject({ minimize: false, level: 'internal' });
+    expect(data).to.have.key('notes');
+  });
+
+  it('should minimize', function () {
+    let data = user.toObject({ minimize: true, level: 'internal' });
+    expect(data).to.not.have.key('notes');
+  });
+
+  it('should be private', function () {
+    let data = user.toObject({
+      level: 'private',
+      minimize: true
     });
     expect(data).to.eql({
       username: 'John',
@@ -117,9 +157,10 @@ describe('ToObject Project Single Level', function() {
     });
   });
 
-  it('should be system', function() {
-    var data = user.toObject({
-      level: 'system'
+  it('should be system', function () {
+    let data = user.toObject({
+      level: 'system',
+      minimize: true
     });
     expect(data).to.eql({
       _id: user._id,
@@ -139,14 +180,16 @@ describe('ToObject Project Single Level', function() {
       },
       deep: {
         c: []
-      }
+      },
+      systemField: 'sys'
     });
   });
 
-  it('should be be modified private', function() {
-    var data = user.toObject({
+  it('should be be modified private', function () {
+    let data = user.toObject({
       level: 'private',
-      projection: '-username -friend -deep'
+      projection: '-username -friend -deep',
+      minimize: true
     });
     expect(data).to.eql({
       name: 'John Jhonsson',
@@ -154,36 +197,77 @@ describe('ToObject Project Single Level', function() {
     });
   });
 
-  it('public should not include password even if asked to', function() {
-    var data = user.toObject({
+  it('public should not include password even if asked to', function () {
+    let data = user.toObject({
       level: 'public',
-      projection: 'password'
+      projection: 'password',
+      minimize: true
     });
     expect(data).to.eql({
       username: 'John'
     });
   });
 
-  it('no options should equal public', function() {
-    var data = user.toObject({});
+  it('no level should equal public', function () {
+    let data = user.toObject({
+    minimize: true});
     expect(data).to.eql({
       username: 'John'
     });
   });
 
-  it('only username should exist', function() {
-    var data = user.toObject({
+  it('only username should exist', function () {
+    let data = user.toObject({
       projection: 'username'
     });
     expect(data).to.eql({
       username: 'John'
     });
   });
+
+  it('systemField should not exist', function () {
+    let data = user.toObject();
+    expect(data).to.not.have.key('systemField');
+  });
+
+  it('systemField should exist', function () {
+    let data = user.toObject({
+      level: 'system',
+      minimize: true
+    });
+    expect(data).to.have.key('systemField');
+  });
+
+  it('groups should not exist', function () {
+    let data = user.toObject();
+    expect(data).to.not.have.key('groups');
+  });
+
+  it('groups should exist', function () {
+    let data = user.toObject({
+      level: 'internal',
+      minimize: true
+    });
+    expect(data).to.have.key('groups');
+  });
+
+  describe('toObjectOptionsExtend', function () {
+    let data = Model.toObjectOptionsExtend({
+      name: 'Doe'
+    });
+
+    it('name should equal to Doe', function () {
+      expect(data.name).to.eql('Doe');
+    });
+
+    it('level should equal public', function () {
+      expect(data.level).to.eql('public');
+    });
+  });
 });
 
-describe('ToObject Project MultiLevel', function() {
-
-  var user = new Model({
+describe('ToObject Project MultiLevel', function () {
+  let user = new Model({
     username: 'John',
     name: 'John Jhonsson',
     password: '123456',
@@ -201,16 +285,17 @@ describe('ToObject Project MultiLevel', function() {
     }
   });
 
-  it('should be public by default', function() {
-    var data = user.toObject();
+  it('should be public by default', function () {
+    let data = user.toObject();
     expect(data).to.eql({
       username: 'John'
     });
   });
 
-  it('should be private', function() {
-    var data = user.toObject({
-      level: 'private'
+  it('should be private', function () {
+    let data = user.toObject({
+      level: 'private',
+      minimize: true
     });
     expect(data).to.eql({
       username: 'John',
@@ -230,10 +315,11 @@ describe('ToObject Project MultiLevel', function() {
     });
   });
 
-  it('deep should not exist', function() {
-    var data = user.toObject({
+  it('deep should not exist', function () {
+    let data = user.toObject({
       level: 'private',
-      projection: '-deep'
+      projection: '-deep',
+      minimize: true
     });
     expect(data).to.eql({
       username: 'John',
@@ -242,10 +328,11 @@ describe('ToObject Project MultiLevel', function() {
     });
   });
 
-  it('deep.c.a should be undefined', function() {
-    var data = user.toObject({
+  it('deep.c.a should be undefined', function () {
+    let data = user.toObject({
       level: 'private',
-      projection: '-deep.c.a'
+      projection: '-deep.c.a',
+      minimize: true
     });
     expect(data).to.eql({
       username: 'John',
@@ -265,8 +352,8 @@ describe('ToObject Project MultiLevel', function() {
     });
   });
 
-  it('should get level schema', function() {
-    var schema0 = Model.getLevelSchema('public');
+  it('should get level schema', function () {
+    let schema0 = Model.getLevelSchemaTree('public');
     expect(schema0).to.be.ok();
     expect(schema0).to.eql({
       username: String
@@ -274,16 +361,110 @@ describe('ToObject Project MultiLevel', function() {
   });
 });
 
-describe('toObjectOptionsExtend', function() {
-  var data = Model.toObjectOptionsExtend({
-    name: 'Doe'
+describe('Errors', function () {
+
+  describe('schema tree level defintion', function () {
+    let schema0 = mongoose.Schema({
+      field: {
+        type: String,
+        level: 'public'
+      }
+    });
+    let schema1 = mongoose.Schema({
+      field: {
+        type: String,
+        level: 'public -private'
+      }
+    });
+
+    let options0 = {};
+    let options1 = {
+      levels: {
+        public: '',
+        private: ''
+      }
+    };
+    let error0;
+    let error1;
+
+    try {
+      schema0.plugin(require('.'), options0);
+    } catch (err) {
+      error0 = err;
+    }
+
+    try {
+      schema1.plugin(require('.'), options1);
+    } catch (err) {
+      error1 = err;
+    }
+
+    let pathName = 'field';
+    let level = 'public';
+
+    it('no predefined level should trow error', function () {
+      expect(error0).to.be.a(Error);
+      expect(error0.message).to.be(`"${pathName}" contains undefined level "${level}". Level inclusions must be predefined in plugin options.`);
+    });
+
+    it('mixing inclusion and exclusion should trow error', function () {
+      expect(error1).to.be.a(Error);
+      expect(error1.message).to.be(`"${pathName}" contains inclusions and exclusions, only one type can be used`);
+    });
   });
 
-  it('name should equal to Doe', function() {
-    expect(data.name).to.eql('Doe');
+  describe('options', function () {
+    let schema0 = mongoose.Schema({
+      field: {
+        type: String,
+      }
+    });
+
+    let options0 = {
+      levels: {
+        public: {}
+      }
+    };
+    let error;
+    try {
+      schema.plugin(require('.'), options0);
+    } catch (err) {
+      error = err;
+    }
+
+    it('non-string level should throw error', function () {
+      expect(error).to.be.a(Error);
+    });
   });
 
-  it('level should equal public', function() {
-    expect(data.level).to.eql('public');
+  describe('transform', function () {
+    let schema0 = mongoose.Schema({
+      field: {
+        type: String,
+      }
+    });
+
+    let options0 = {
+      levels: {
+        public: 'field'
+      },
+      level: () => {}
+    };
+    let error;
+
+    schema0.plugin(require('.'), options0);
+
+    let Model0 = mongoose.model(Date.now().toString(), schema0);
+
+    try {
+      new Model0({}).toObject();
+    } catch (err) {
+      error = err;
+    }
+
+    it('no level should trow error', function () {
+      expect(error).to.be.a(Error);
+      expect(error.message).to.be('unable to determine level');
+    });
   });
 });
