@@ -29,8 +29,8 @@ schema.plugin(require('mongoose-to-object-project'), {
   level: 'public',
   //  or a synchronous level selector function (preferred method).
   // All transform options are passed on to level selector functions,
-  // e.g. we can get the user that requested the transform from ``options.user``
-  // if user is passed into ``toObject`` options, like ``toObject({ user: req.user })``.
+  // e.g. we can get the user that requested the transform from `options.user`
+  // if user is passed into `toObject` options, like `toObject({ user: req.user })`.
   level: (doc, ret, options) => doc._id.equals(options.user._id) ? 'private' : 'public'
 });
 ```
@@ -91,11 +91,13 @@ level: (doc, ret, options) => doc._id.equals(options.user._id) ? 'private' : 'pu
 ```
 
 # Model Schema Extensions
-## [_method_] getLevelSchemaTree(``levelName``)
-Returns a clone of the schema tree (plain object) with projection applied.
+## [_method_] getLevelSchemaTree(`levelName`)
+Returns a clone of the schema tree (plain object) with level projection applied.
 
-## [_method_] toObject(``obj``)
-Added options:<br>`obj.projection: String` - Mongoose style dot-notation, space delimited projection argument. Both inclusions and exclusions are possible but inclusions takes precedence thus excluding all other fields.
+## [_method_] toObject(`obj`)<a name="toObject"></a>
+Added options:
+
+`obj.projection: String` - Mongoose style dot-notation, space delimited projection argument. Both inclusions and exclusions are possible but inclusions takes precedence thus excluding all other fields.
 
 `obj.level: String` - Set level to use. (!)
 
@@ -106,7 +108,7 @@ Added options:<br>`obj.projection: String` - Mongoose style dot-notation, space 
 
 (!) **CAUTION**<br>level option is passed to the toObject method call of populated subdocuments and may not be compatible. Use with caution and if possible, avoid level option completely and depend on schema defaults instead. Function is the preferred level selector method in plugin options.
 
-## [_static_] toObjectOptionsExtend(``obj``)
+## [_static_] toObjectOptionsExtend(`obj`)
 This method extends `obj` with the default schema toObject options (Adds defaults to prototype chain).<br>In mongoose the options passed to `toObject` do not inherit the defaults, this method solves this.
 
 Example:
@@ -119,10 +121,14 @@ let options = Model.toObjectOptionsExtend({
 let plainObject = document.toObject(options);
 ```
 
+## [_method_] set(`path`, `val`, `[type]`, `[options]`)
+Added options:  same as [`toObject`](#toObject)  
+See: [mongoose docs Document#set](http://mongoosejs.com/docs/api.html#document_Document-set)
+
 # Compatibility
 Only intended for Mongoose v4 with NodeJS later than v4. Tested with Mongoose 4.2.8.
 
-# QA
+# Q&A
 Q. What about toJSON?<br>A.Use option `json: true` with toObject, same result.
 
 # License

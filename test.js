@@ -3,14 +3,6 @@
 const expect = require('expect.js');
 const mongoose = require('mongoose');
 
-/*
-TODO:
-Test child path filtering.
-Test all errors
-Test no minimization
-Test no preset option
-*/
-
 const schema = mongoose.Schema({
   username: String,
   name: String,
@@ -57,7 +49,9 @@ let options = {
     public: 'username -password -_id -deep otherTransform -friend',
     private: '-password -_id',
     system: '',
-    internal: ''
+    internal: '',
+    deepExclusion: '-deep.field -deep.arr.val -deep.deep.undefined',
+    deepInclusion: 'deep.field deep.arr.val deep.deep.undefined'
   },
   // optional default level as string or a synchronous level selector function returning level name as a string (recommended), function is passed all transform arguments
   level: 'public'
@@ -66,6 +60,158 @@ let options = {
 schema.plugin(require('.'), options);
 
 const Model = mongoose.model('User', schema);
+
+describe('set method', function () {
+  let user = new Model({
+    username: 'Jhon Doe',
+    deep: {
+      a: 'a string',
+      b: 'b string',
+      c: [{
+        a: 'hello',
+        b: 'world'
+      }]
+    },
+  });
+
+  it('should not set', () => {
+    user.set('usernames', 'world', {
+      level: 'system'
+    });
+    expect(user.get('usernames')).to.not.be('world');
+  });
+
+  it('should not set deep', () => {
+    user.set('usernames.name', 'world', {
+      level: 'system'
+    });
+    expect(user.get('usernames.name')).to.not.be('world');
+  });
+
+  it('username should equal world', () => {
+    user.set('username', 'world', {
+      level: 'system'
+    });
+    expect(user.get('username')).to.be('world');
+  });
+
+  it('deep.c.0.a should equal world', () => {
+    user.set('deep.c.0.a', 'world', {
+      level: 'system'
+    });
+    expect(user.get('deep.c.0.a')).to.be('world');
+  });
+
+  it('deep.c.0.a should not equal word', () => {
+    user.set('deep.c.0.a', 'word', {
+      level: 'public'
+    });
+    expect(user.get('deep.c.0.a')).to.not.be('word');
+  });
+
+  it('deep.c.b.a should not equal word', () => {
+    user.set('deep.c.b.a', 'word', {
+      level: 'system'
+    });
+    expect(user.get('deep.c.b.a')).to.not.be('word');
+  });
+
+  it('deep.c.0.a should equal bird', () => {
+    user.set('deep.c.0', {
+      a: 'bird'
+    }, {
+      level: 'system'
+    });
+    expect(user.get('deep.c.0.a')).to.eql('bird');
+  });
+
+  it('deep.c.0.a should equal word', () => {
+    user.set({
+      deep: {
+        c: [{
+          a: 'word'
+        }]
+      }
+    }, undefined, {
+      level: 'system'
+    });
+    expect(user.get('deep.c.0.a')).to.be('word');
+  });
+});
+
+describe('levelProjectObject', function () {
+  it('should return public', function () {
+    expect(Model.levelProjectObject({
+      username: 'my username',
+      password: 'my password',
+      deep: {
+        field: 'lel'
+      }
+    })).to.eql({
+      username: 'my username'
+    });
+  });
+
+  it('should return public minimized', function () {
+    expect(Model.levelProjectObject({
+      username: 'my username',
+      password: 'my password'
+    }, {
+      level: 'public',
+      minimize: true
+    })).to.eql({
+      username: 'my username'
+    });
+  });
+
+  it('should return deepExclusion', function () {
+    expect(Model.levelProjectObject({
+      username: 'my username',
+      deep: {
+        field: 'lel',
+        arr: [{
+          val: 'val',
+          hej: 'hej'
+        }],
+        deep: undefined
+      }
+    }, {
+      level: 'deepExclusion'
+    })).to.eql({
+      username: 'my username',
+      deep: {
+        arr: [{
+          hej: 'hej'
+        }],
+        deep: undefined
+      }
+    });
+  });
+
+  it('should return deepInclusion', function () {
+    expect(Model.levelProjectObject({
+      username: 'my username',
+      deep: {
+        field: 'lel',
+        arr: [{
+          val: 'val',
+          hej: 'hej'
+        }],
+        deep: undefined
+      }
+    }, {
+      level: 'deepInclusion',
+      projection: 'deep.arr.b'
+    })).to.eql({
+      deep: {
+        field: 'lel',
+        arr: [{
+          val: 'val'
+        }]
+      }
+    });
+  });
+});
 
 describe('ToObject Project Single Level', function () {
 
@@ -125,12 +271,18 @@ describe('ToObject Project Single Level', function () {
   });
 
   it('should not minimize', function () {
-    let data = user.toObject({ minimize: false, level: 'internal' });
+    let data = user.toObject({
+      minimize: false,
+      level: 'internal'
+    });
     expect(data).to.have.key('notes');
   });
 
   it('should minimize', function () {
-    let data = user.toObject({ minimize: true, level: 'internal' });
+    let data = user.toObject({
+      minimize: true,
+      level: 'internal'
+    });
     expect(data).to.not.have.key('notes');
   });
 
@@ -210,7 +362,8 @@ describe('ToObject Project Single Level', function () {
 
   it('no level should equal public', function () {
     let data = user.toObject({
-    minimize: true});
+      minimize: true
+    });
     expect(data).to.eql({
       username: 'John'
     });
@@ -342,10 +495,8 @@ describe('ToObject Project MultiLevel', function () {
         a: 'a var',
         b: 'b var',
         c: [{
-          a: undefined,
           b: 'c.b var 0'
         }, {
-          a: undefined,
           b: 'c.b var 1'
         }]
       }

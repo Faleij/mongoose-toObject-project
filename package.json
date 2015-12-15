@@ -24,7 +24,6 @@
   },
   "homepage": "https://github.com/Faleij/mongoose-toObject-project#readme",
   "dependencies": {
-    "mpath": "0.2.1"
   },
   "devDependencies": {
     "coveralls": "2.11.4",

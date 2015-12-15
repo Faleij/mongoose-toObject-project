@@ -1,7 +1,8 @@
 'use strict';
 
-const mpath = require('mpath');
+//const mpath = require('mpath');
 const utils = module.parent.require('mongoose/lib/utils');
+const NUMBER_REGEX = new RegExp('^\\d+$');
 
 function minimize(obj) {
   var k = Object.keys(obj),
@@ -40,6 +41,84 @@ function compileProjectionStringToArray(str) {
   });
 
   return out;
+}
+
+function findAndDelete(target, parts) {
+  var type;
+  var i = parts.length;
+  while (i-- > 1) {
+    target = target[parts.shift()];
+
+    if (Array.isArray(target)) {
+      return target.forEach((v) => findAndDelete(v, parts.slice()));
+    } else if (!utils.isObject(target)) {
+      return;
+    }
+  }
+
+  delete target[parts.shift()];
+}
+
+function transfer(source, target, parts) {
+  var part;
+  var i = parts.length;
+  while (i-- > 1) {
+    part = parts.shift();
+    source = source[part];
+
+    if (Array.isArray(source)) {
+      if (!target[part]) {
+        target = target[part] = new Array(source.length);
+      } else {
+        target = target[part];
+      }
+
+      return source.forEach((v, i) => {
+        // nested arrays in form of [[Type]] is not supported in mongoose, untill it is supported this will remain untested
+        var c = target[i] || (target[i] = Array.isArray(v) ? new Array(v.length) : utils.isObject(v) ? {} : undefined);
+        return c && transfer(v, c, parts.slice());
+      });
+    }
+
+    if (utils.isObject(source)) {
+      target = target[part] = target[part] || {};
+    } else {
+      return;
+    }
+  }
+
+  part = parts.shift();
+  if (target && source.hasOwnProperty(part)) {
+    target[part] = source[part];
+  }
+}
+
+function levelProject(obj, out, level, projection, minimizeOutput) {
+  projection = compileProjectionStringToArray(projection || '');
+
+  if (!level) {
+    throw new Error('unable to determine level');
+  }
+
+  // merge user and preset levels projection
+  projection.include = projection.include.concat(level.include);
+  projection.exclude = projection.exclude.concat(level.exclude);
+
+  // inclusion
+  if (projection.include.length) {
+    //out = projection.include.reduce((p, path) => mpath.set(path, mpath.get(path, obj), p) || p, {});
+    out = {};
+    projection.include.forEach(path => transfer(obj, out, path.split('.')));
+
+  }
+
+  // exclusion
+  if (projection.exclude.length) {
+    out = out || obj;
+    projection.exclude.forEach((path) => findAndDelete(out, path.split('.')));
+  }
+
+  return minimizeOutput ? minimize(out) : out;
 }
 
 /*
@@ -89,38 +168,22 @@ module.exports = exports = (schema, pluginOptions) => {
     }
   });
 
-  function transform(doc, ret, options) {
-    var out = ret;
-    var level = options.level || pluginOptions.level;
-    var projection = compileProjectionStringToArray(options.projection || '');
+  function resolveLevel(level, doc, ret, options) {
+    level = options && options.level || pluginOptions.level;
 
     if (level instanceof Function) {
       level = level(doc, ret, options);
     }
 
-    if (typeof level === 'string') {
-      level = pluginOptions.levels[level];
-    }
+    return typeof level === 'string' && pluginOptions.levels[level];
+  }
 
-    if (!level) {
-      throw new Error('unable to determine level');
-    }
-
-    // merge user and preset levels projection
-    projection.include = projection.include.concat(level.include);
-    projection.exclude = projection.exclude.concat(level.exclude);
-
-    // inclusion
-    if (projection.include.length) {
-      out = projection.include.reduce((p, path) => mpath.set(path, mpath.get(path, ret), p) || p, {});
-    }
-
-    // exclusion
-    if (projection.exclude.length) {
-      projection.exclude.forEach((path) => mpath.set(path, undefined, out));
-    }
-
-    return options.minimize ? minimize(out) : out;
+  function transform(doc, ret, options) {
+    return levelProject(ret,
+      ret,
+      resolveLevel(options && options.level, doc, ret, options),
+      options && options.projection,
+      options && options.minimize);
   }
 
   // Set schema toObject options
@@ -138,4 +201,77 @@ module.exports = exports = (schema, pluginOptions) => {
     minimize: true,
     level: level
   }));
+
+  let set = module.parent.require('mongoose').Document.prototype.set;
+
+  function buildObjectTreeAndSetValue(dotNotationPath, val) {
+    var parts = dotNotationPath.split('.');
+    var path = {};
+    var target = path;
+    var treePath;
+    var treeHistory = '';
+    var part;
+    var i = parts.length;
+    var len = parts.length;
+
+    while (i-- > 1) {
+      part = parts.shift();
+      treeHistory += (treeHistory.length ? '.' : '') + part;
+
+      if (schema.pathType(treeHistory) === 'nested') {
+        target = target[part] = {};
+        continue;
+      }
+
+      treePath = schema.path(treeHistory);
+
+      if (treePath && treePath.instance === 'Array') {
+        target = target[part] = [];
+
+        if (NUMBER_REGEX.test(parts[0])) {
+          parts[0] = parseInt(parts[0]);
+          if (parts.length > 1) {
+            i--;
+            target = target[parts.shift()] = {};
+          }
+        }
+      } else {
+        break;
+      }
+    }
+
+    if (treePath || len === 1) {
+      target[parts.shift()] = val;
+    }
+
+    return path;
+  }
+
+  schema.method('set', function (path, val, type, options) {
+    if (type && type.constructor && type.constructor.name === 'Object') {
+      options = type;
+      type = undefined;
+    }
+
+    if (options && options.constructor && options.constructor.name === 'Object') {
+      if (typeof path === 'string') {
+        // Build object tree from string
+        path = buildObjectTreeAndSetValue(path, val);
+        val = undefined;
+      }
+
+      path = this.constructor.levelProjectObject(path, options);
+    }
+
+    return set.call(this, path, val, type, options);
+  });
+
+  schema.static('levelProjectObject', (obj, options) =>
+    levelProject(
+      obj,
+      undefined,
+      resolveLevel(options && options.level, undefined, obj, options),
+      options && options.projection,
+      options && options.minimize)
+  );
 };
