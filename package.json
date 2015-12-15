@@ -1,6 +1,6 @@
 {
   "name": "mongoose-to-object-project",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "description": "Adds projection to toObject with predefined levels and level selector capabilitiy",
   "main": "index.js",
   "scripts": {
@@ -23,8 +23,7 @@
     "url": "https://github.com/Faleij/mongoose-toObject-project/issues"
   },
   "homepage": "https://github.com/Faleij/mongoose-toObject-project#readme",
-  "dependencies": {
-  },
+  "dependencies": {},
   "devDependencies": {
     "coveralls": "2.11.4",
     "istanbul": "0.4.1",
