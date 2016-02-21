@@ -90,11 +90,9 @@ Synchronous function that must return level name to use as a string. **Preferred
 level: (doc, ret, options) => doc._id.equals(options.user._id) ? 'private' : 'public'
 ```
 
-# Model Schema Extensions
-## [_method_] getLevelSchemaTree(`levelName`)
-Returns a clone of the schema tree (plain object) with level projection applied.
+# Mongoose API Extensions and Modifications
 
-## [_method_] toObject(`obj`)<a name="toObject"></a>
+## Document#toObject(`obj`)<a name="toObject"></a>
 Added options:
 
 `obj.projection: String` - Mongoose style dot-notation, space delimited projection argument. Both inclusions and exclusions are possible but inclusions takes precedence thus excluding all other fields.
@@ -108,7 +106,11 @@ Added options:
 
 (!) **CAUTION**<br>level option is passed to the toObject method call of populated subdocuments and may not be compatible. Use with caution and if possible, avoid level option completely and depend on schema defaults instead. Function is the preferred level selector method in plugin options.
 
-## [_static_] toObjectOptionsExtend(`obj`)
+## Document#set(`path`, `val`, `[type]`, `[options]`)
+Added options:  same as [`toObject`](#toObject)  
+See: [mongoose docs Document#set](http://mongoosejs.com/docs/api.html#document_Document-set)
+
+## Model#toObjectOptionsExtend(`obj`)
 This method extends `obj` with the default schema toObject options (Adds defaults to prototype chain).<br>In mongoose the options passed to `toObject` do not inherit the defaults, this method solves this.
 
 Example:
@@ -121,9 +123,8 @@ let options = Model.toObjectOptionsExtend({
 let plainObject = document.toObject(options);
 ```
 
-## [_method_] set(`path`, `val`, `[type]`, `[options]`)
-Added options:  same as [`toObject`](#toObject)  
-See: [mongoose docs Document#set](http://mongoosejs.com/docs/api.html#document_Document-set)
+## Model#getLevelSchemaTree(`levelName`)
+Returns a clone of the schema tree (plain object) with level projection applied.
 
 # Compatibility
 Only intended for Mongoose v4 with NodeJS later than v4. Tested with Mongoose 4.2.8.
