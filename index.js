@@ -41,22 +41,34 @@ function compileProjectionStringToArray(str, schema) {
   });
 
   if (schema) {
-      // Find exclusions that are parent of one or more inclusions and convert parent exclusion to child exclusion
+    // Find exclusions that are parent of one or more inclusions and convert parent exclusion to child exclusion
+    let newExclusions = Array.from(new Set(out.exclude.slice().map((exclusion, index) => {
+      let exclusionDot = exclusion + '.';
+      let includes = out.include.filter(v => v.startsWith(exclusionDot)); //.map(v => v.substr(exclusion.length));
 
-    out.exclude = Array.prototype.concat.apply(out.exclude, out.exclude.map((exclusion, index) => {
-        let exclusionDot = exclusion + '.';
-        let includes = out.include.filter(v => v.startsWith(exclusionDot)); //.map(v => v.substr(exclusion.length));
-        if (!includes.length) {
-            return [];
-        }
+      // check if any children are included
+      if (!includes.length) {
+        return [];
+      }
 
-        let newExclusions = Object.keys(schema.paths).filter(v => v.startsWith(exclusionDot) && !includes.some(iv => v.startsWith(iv)));
-        if (newExclusions.length) {
-            out.exclude.splice(index, 1);
-        }
+      let exclusionDotLength = exclusionDot.length;
 
-        return newExclusions;
-    }));
+      // calculate new exclusions
+      let exclusions = Array.from(new Set(Object.keys(schema.paths)
+        .filter(v => v.startsWith(exclusionDot) && !includes.some(iv => v.startsWith(iv)))
+        .map(v => {
+          let firstDot = v.substr(exclusionDotLength).indexOf('.');
+          return firstDot > -1 ? v.substr(0, exclusionDotLength + firstDot) : v;
+        })));
+
+      if (exclusions.length) {
+        out.exclude.splice(index, 1);
+      }
+
+      return exclusions;
+    })));
+
+    out.exclude = Array.prototype.concat.apply(out.exclude, newExclusions);
   }
 
   return out;
@@ -295,23 +307,23 @@ module.exports = exports = (schema, pluginOptions) => {
   );
 
   schema.static('getPathAsLevel', (level, path) => {
-      level = pluginOptions.levels[level];
+    level = pluginOptions.levels[level];
 
-      if (!level) {
-          return;
-      }
+    if (!level) {
+      return;
+    }
 
-      if (level.exclude.length) {
-          if (level.exclude.some(v => path === v || (path + '.').startsWith(v))) {
-              return;
-          }
+    if (level.exclude.length) {
+      if (level.exclude.some(v => path === v || (path + '.').startsWith(v))) {
+        return;
       }
+    }
 
-      if (level.include.length) {
-          if (!level.include.some(v => path === v || (path + '.').startsWith(v))) {
-              return;
-          }
+    if (level.include.length) {
+      if (!level.include.some(v => path === v || (path + '.').startsWith(v))) {
+        return;
       }
-      return schema.path(path);
+    }
+    return schema.path(path);
   });
 };
