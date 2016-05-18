@@ -29,7 +29,7 @@
     "istanbul": "0.4.1",
     "mocha": "2.3.4",
     "expect.js": "0.3.1",
-    "mongoose": "4.2.8"
+    "mongoose": "4.4.14"
   },
   "jshintConfig": {
     "node": true,

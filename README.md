@@ -64,7 +64,7 @@ schema.plugin(require('mongoose-to-object-project'), options);
 ```
 
 ### `levels: Object`
-Predefined levels to use with a level selector. Key is level name. Value is a Mongoose style dot-notation, space delimited projection. Both inclusions and exclusions are possible but inclusions takes precedence thus excluding all other fields.
+Predefined levels to use with a level selector. Key is level name. Value is a Mongoose style dot-notation, space delimited projection. Mixing inclusions and exclusions is possible. Defining at least one inclusion causes all other fields to be excluded automatically like MongoDB. Child inclusions precedes Parent exclusions, e.g. '-parent parent.child1' results in all properties but parent.child1 to be excluded.
 
 ```javascript
 levels: {
@@ -104,7 +104,8 @@ Added options:
 - `ret` - Document as plain Object
 - `options` - Transform options (Same as `obj` - if specified)
 
-(!) **CAUTION**<br>level option is passed to the toObject method call of populated subdocuments and may not be compatible. Use with caution and if possible, avoid level option completely and depend on schema defaults instead. Function is the preferred level selector method in plugin options.
+(!) **CAUTION:**  
+The level option is passed to the toObject method call of populated subdocuments and it may not be compatible. Therefore use with caution and if possible, avoid level option completely and depend on schema defaults instead. A Function is the preferred level selector method in plugin options.
 
 ## Document#set(`path`, `val`, `[type]`, `[options]`)
 Added options:  same as [`toObject`](#toObject)  

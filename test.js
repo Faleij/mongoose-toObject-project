@@ -141,6 +141,7 @@ describe('set method', function () {
 
 describe('levelProjectObject', function () {
   it('should return public', function () {
+      debugger;
     expect(Model.levelProjectObject({
       username: 'my username',
       password: 'my password',
@@ -211,6 +212,25 @@ describe('levelProjectObject', function () {
       }
     });
   });
+});
+
+describe('getPathAsLevel', function () {
+  it('username as public should equal username', function () {
+    expect(Model.getPathAsLevel('public', 'username')).to.eql(schema.path('username'));
+  });
+
+  it('usernamez as public should equal undefined', function () {
+    expect(Model.getPathAsLevel('public', 'usernamez')).to.eql(undefined);
+  });
+
+  it('password as public should equal undefined', function () {
+    expect(Model.getPathAsLevel('public', 'password')).to.eql(undefined);
+  });
+
+  it('password as system should equal password', function () {
+    expect(Model.getPathAsLevel('system', 'password')).to.eql(schema.path('password'));
+  });
+
 });
 
 describe('ToObject Project Single Level', function () {
@@ -510,6 +530,44 @@ describe('ToObject Project MultiLevel', function () {
       username: String
     });
   });
+});
+
+describe('Child inclusion overrides parent exclusion', function () {
+    let schema0 = mongoose.Schema({
+      parent: {
+        child0: String,
+        child1: {
+            child0: String
+        }
+      }
+    });
+
+    let options0 = {
+      levels: {
+        public: '-parent parent.child1'
+      },
+      level: 'public'
+    };
+    let error;
+
+    schema0.plugin(require('.'), options0);
+
+    let Model0 = mongoose.model(Date.now().toString(), schema0);
+
+    it('should include parent.child1 but not parent.child0', function () {
+        debugger;
+      let data = new Model0({
+          parent: {
+              child0: 'data0',
+              child1: {
+                  child0: 'data1'
+              }
+          }
+      }).toObject();
+      expect(data).to.have.property('parent');
+      expect(data.parent).to.not.have.property('child0');
+      expect(data.parent).to.have.property('child1');
+    });
 });
 
 describe('Errors', function () {

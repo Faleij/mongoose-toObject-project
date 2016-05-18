@@ -21,7 +21,7 @@ function minimize(obj) {
   return h ? obj : undefined;
 }
 
-function compileProjectionStringToArray(str) {
+function compileProjectionStringToArray(str, schema) {
   let out = str.split(' ').reduce((projection, path) => {
     if (path[0] === '-') {
       projection.exclude.push(path.substr(1));
@@ -37,8 +37,27 @@ function compileProjectionStringToArray(str) {
   // Filter child paths
   Object.keys(out).forEach(key => {
     let fields = out[key].sort();
-    out[key] = fields.filter(v => !fields.some(field => v !== field && v.indexOf(field) === 0));
+    out[key] = fields.filter(v => !fields.some(field => v !== field && v.startsWith(field + '.')));
   });
+
+  if (schema) {
+      // Find exclusions that are parent of one or more inclusions and convert parent exclusion to child exclusion
+
+    out.exclude = Array.prototype.concat.apply(out.exclude, out.exclude.map((exclusion, index) => {
+        let exclusionDot = exclusion + '.';
+        let includes = out.include.filter(v => v.startsWith(exclusionDot)); //.map(v => v.substr(exclusion.length));
+        if (!includes.length) {
+            return [];
+        }
+
+        let newExclusions = Object.keys(schema.paths).filter(v => v.startsWith(exclusionDot) && !includes.some(iv => v.startsWith(iv)));
+        if (newExclusions.length) {
+            out.exclude.splice(index, 1);
+        }
+
+        return newExclusions;
+    }));
+  }
 
   return out;
 }
@@ -134,7 +153,7 @@ module.exports = exports = (schema, pluginOptions) => {
   let predefinedLevels = Object.keys(pluginOptions.levels);
 
   // Compile levels to arrays
-  predefinedLevels.forEach(key => pluginOptions.levels[key] = compileProjectionStringToArray(pluginOptions.levels[key]));
+  predefinedLevels.forEach(key => pluginOptions.levels[key] = compileProjectionStringToArray(pluginOptions.levels[key], schema));
 
   // Support schemaType level option
   schema.eachPath((pathName, schemaType) => {
@@ -274,4 +293,25 @@ module.exports = exports = (schema, pluginOptions) => {
       options && options.projection,
       options && options.minimize)
   );
+
+  schema.static('getPathAsLevel', (level, path) => {
+      level = pluginOptions.levels[level];
+
+      if (!level) {
+          return;
+      }
+
+      if (level.exclude.length) {
+          if (level.exclude.some(v => path === v || (path + '.').startsWith(v))) {
+              return;
+          }
+      }
+
+      if (level.include.length) {
+          if (!level.include.some(v => path === v || (path + '.').startsWith(v))) {
+              return;
+          }
+      }
+      return schema.path(path);
+  });
 };
