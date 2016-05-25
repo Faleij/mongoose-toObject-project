@@ -7,7 +7,8 @@ const NUMBER_REGEX = new RegExp('^\\d+$');
 function minimize(obj) {
   var k = Object.keys(obj),
     i = k.length,
-    h, v;
+    h,
+    v;
 
   while (i--) {
     v = obj[k[i]];
@@ -53,7 +54,7 @@ function compileProjectionStringToArray(str, schema) {
 
       let exclusionDotLength = exclusionDot.length;
 
-      // calculate new exclusions
+      // calculate new
       let exclusions = Array.from(new Set(Object.keys(schema.paths)
         .filter(v => v.startsWith(exclusionDot) && !includes.some(iv => v.startsWith(iv)))
         .map(v => {
@@ -199,6 +200,10 @@ module.exports = exports = (schema, pluginOptions) => {
     }
   });
 
+  schema.options.toObject = Object.assign(schema.options.toObject || {}, {
+    levels: pluginOptions.levels
+  });
+
   function resolveLevel(level, doc, ret, options) {
     level = options && options.level || pluginOptions.level;
 
@@ -206,7 +211,25 @@ module.exports = exports = (schema, pluginOptions) => {
       level = level(doc, ret, options);
     }
 
-    return typeof level === 'string' && pluginOptions.levels[level];
+    if (typeof level === 'string') {
+      if (doc &&
+        doc.constructor &&
+        doc.constructor.schema) {
+        if (doc.constructor.schema.options.toObject &&
+          doc.constructor.schema.options.toObject.levels) {
+          level = doc.constructor.schema.options.toObject.levels[level];
+        } else {
+          return {
+            include: [],
+            exclude: []
+          };
+        }
+      } else {
+        level = pluginOptions.levels[level];
+      }
+    }
+
+    return level;
   }
 
   function transform(doc, ret, options) {
@@ -278,7 +301,7 @@ module.exports = exports = (schema, pluginOptions) => {
     return path;
   }
 
-  schema.method('set', function (path, val, type, options) {
+  schema.method('set', function(path, val, type, options) {
     if (type && type.constructor && type.constructor.name === 'Object') {
       options = type;
       type = undefined;
@@ -297,13 +320,12 @@ module.exports = exports = (schema, pluginOptions) => {
     return set.call(this, path, val, type, options);
   });
 
-  schema.static('levelProjectObject', (obj, options) =>
-    levelProject(
-      obj,
-      undefined,
-      resolveLevel(options && options.level, undefined, obj, options),
-      options && options.projection,
-      options && options.minimize)
+  schema.static('levelProjectObject', (obj, options) => levelProject(
+    obj,
+    undefined,
+    resolveLevel(options && options.level, undefined, obj, options),
+    options && options.projection,
+    options && options.minimize)
   );
 
   schema.static('getPathAsLevel', (level, path) => {
